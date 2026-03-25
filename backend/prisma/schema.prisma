@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  CREATOR
+  TEAM
+}
+
+enum Platform {
+  LINKEDIN
+  INSTAGRAM
+  TWITTER
+  YOUTUBE
+  FACEBOOK
+  REDDIT
+}
+
+enum Tone {
+  PROFESSIONAL
+  WITTY
+  SUPPORTIVE
+  CURIOUS
+  CONTRARIAN
+}
+
+model User {
+  id               String   @id @default(cuid())
+  firebaseUid      String   @unique
+  email            String
+  name             String
+  plan             Plan     @default(FREE)
+  generationsToday Int      @default(0)
+  lastResetAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  generationHistory GenerationHistory[]
+  savedDrafts       SavedDraft[]
+  voiceSamples      VoiceSample[]
+  teamMemberships   TeamMembership[]    @relation("TeamOwner")
+  memberOf          TeamMembership[]    @relation("TeamMember")
+}
+
+model GenerationHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  platform      Platform
+  tone          Tone
+  inputText     String
+  suggestions   String[]
+  selectedIndex Int?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedDraft {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  platform  Platform
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VoiceSample {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TeamMembership {
+  id          String   @id @default(cuid())
+  teamOwnerId String
+  memberId    String
+  createdAt   DateTime @default(now())
+
+  teamOwner User @relation("TeamOwner", fields: [teamOwnerId], references: [id], onDelete: Cascade)
+  member    User @relation("TeamMember", fields: [memberId], references: [id], onDelete: Cascade)
+}
