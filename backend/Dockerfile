@@ -19,6 +19,9 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+# Prisma's migration engine requires OpenSSL at runtime
+RUN apk add --no-cache openssl
+
 # Install prod dependencies only
 COPY package*.json ./
 RUN npm ci --omit=dev
