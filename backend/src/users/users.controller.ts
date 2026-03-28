@@ -7,24 +7,28 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
 import { UsersService } from './users.service';
 import { FirebaseAuthGuard } from '../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { User } from '@prisma/client';
 
 class SyncUserDto {
+  @IsString()
   @ApiProperty({
     example: 'uid_abc123XYZ',
     description: 'Firebase UID obtained from the client SDK after sign-in',
   })
   firebaseUid: string;
 
+  @IsString()
   @ApiProperty({
     example: 'john@example.com',
     description: 'User email address from Firebase Auth',
   })
   email: string;
 
+  @IsString()
   @ApiProperty({
     example: 'John Doe',
     description: 'Display name from Firebase Auth (Google profile or manually set)',

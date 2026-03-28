@@ -1,15 +1,21 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:comment_ai/core/services/screenshot_channel.dart';
 
 // ─────────────────────────────────────────────
 // Entry point — registered as a separate Flutter engine
 // ─────────────────────────────────────────────
 @pragma('vm:entry-point')
-void overlayMain() {
+void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const _OverlayApp());
 }
 
@@ -38,113 +44,100 @@ enum _OverlayState { bubble, loading, panel }
 
 class _OverlayRootState extends State<OverlayRoot> {
   _OverlayState _mode = _OverlayState.bubble;
-  String _ocrText = '';
-  String _errorMessage = '';
+  String _scannedText = '';
 
-  @override
-  void initState() {
-    super.initState();
-    // Listen for responses from the main app engine
-    FlutterOverlayWindow.overlayListener.listen(_onMainAppMessage);
+  Future<void> _onBubbleTap() async {
+    setState(() => _mode = _OverlayState.loading);
+
+    final path = await ScreenshotChannel.captureScreen();
+    if (path != null) {
+      final text = await _runOcr(path);
+      _scannedText = text;
+    } else {
+      _scannedText = '';
+    }
+
+    await FlutterOverlayWindow.resizeOverlay(400, 560, true);
+    setState(() => _mode = _OverlayState.panel);
   }
 
-  void _onMainAppMessage(dynamic data) {
-    if (data is! Map) return;
-    final action = data['action'] as String?;
+  /// Called from the panel when the user wants to upload an image.
+  /// Writes a trigger file → MainApplication (FileObserver) starts PickerActivity →
+  /// PickerActivity runs OCR and writes result file → we poll for it.
+  Future<void> _onPickImage() async {
+    setState(() => _mode = _OverlayState.loading);
+    await FlutterOverlayWindow.resizeOverlay(72, 72, true);
 
-    switch (action) {
-      case 'ocr_result':
-        final text = (data['text'] as String?) ?? '';
-        setState(() {
-          _ocrText = text;
-          _mode = _OverlayState.panel;
-        });
-        // Expand the overlay window to show the full panel (-1 = match parent)
-        FlutterOverlayWindow.resizeOverlay(-1, 520);
-        break;
+    final dir = await getTemporaryDirectory();
+    final requestFile = File('${dir.path}/pick_request');
+    final resultFile = File('${dir.path}/pick_result');
 
-      case 'screenshot_error':
-        setState(() {
-          _errorMessage = (data['message'] as String?) ?? 'Unknown error';
-          _mode = _OverlayState.bubble;
-        });
-        // Collapse back to bubble on error
-        FlutterOverlayWindow.resizeOverlay(56, 56);
+    // Clear any stale result from a previous pick
+    if (await resultFile.exists()) await resultFile.delete();
+
+    // Signal native layer to open PickerActivity
+    await requestFile.writeAsString('1');
+
+    // Poll for result (PickerActivity writes pick_result when done)
+    String text = '';
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
+    while (DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (await resultFile.exists()) {
+        text = await resultFile.readAsString();
+        await resultFile.delete();
         break;
+      }
+    }
+
+    _scannedText = text;
+    await FlutterOverlayWindow.resizeOverlay(400, 560, true);
+    setState(() => _mode = _OverlayState.panel);
+  }
+
+  Future<String> _runOcr(String imagePath) async {
+    try {
+      const channel = MethodChannel('com.eatechnologies.comment_ai/screenshot');
+      final result = await channel.invokeMethod<String>('runOcr', {'path': imagePath});
+      return result ?? '';
+    } catch (_) {
+      return '';
     }
   }
 
-  Future<void> _onBubbleTap() async {
-    setState(() {
-      _mode = _OverlayState.loading;
-      _errorMessage = '';
-    });
-
-    // Ask the main app engine to take a screenshot + run OCR
-    await FlutterOverlayWindow.shareData({'action': 'capture_screenshot'});
-    // Response arrives via _onMainAppMessage
-  }
-
-  void _onClose() {
-    setState(() {
-      _mode = _OverlayState.bubble;
-      _ocrText = '';
-    });
-    FlutterOverlayWindow.resizeOverlay(56, 56);
+  Future<void> _onClose() async {
+    setState(() { _mode = _OverlayState.bubble; _scannedText = ''; });
+    await FlutterOverlayWindow.resizeOverlay(72, 72, true);
   }
 
   @override
   Widget build(BuildContext context) {
     return switch (_mode) {
-      _OverlayState.bubble  => _BubbleView(onTap: _onBubbleTap, error: _errorMessage),
+      _OverlayState.bubble  => _BubbleView(onTap: _onBubbleTap),
       _OverlayState.loading => const _LoadingView(),
-      _OverlayState.panel   => _PanelView(initialText: _ocrText, onClose: _onClose),
+      _OverlayState.panel   => _PanelView(
+          initialText: _scannedText,
+          onClose: _onClose,
+          onPickImage: _onPickImage,
+        ),
     };
   }
 }
 
 // ─────────────────────────────────────────────
-// Bubble — 56×56 floating button
+// Loading — spinner while capturing + OCR
 // ─────────────────────────────────────────────
-class _BubbleView extends StatelessWidget {
-  final VoidCallback onTap;
-  final String error;
-  const _BubbleView({required this.onTap, required this.error});
-
+class _LoadingView extends StatelessWidget {
+  const _LoadingView();
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          color: Colors.deepPurple,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha:0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            const Center(
-              child: Text('💬', style: TextStyle(fontSize: 24)),
-            ),
-            if (error.isNotEmpty)
-              Positioned(
-                top: 0, right: 0,
-                child: Container(
-                  width: 14, height: 14,
-                  decoration: const BoxDecoration(
-                    color: Colors.red, shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-          ],
+    return Container(
+      width: 72, height: 72,
+      decoration: const BoxDecoration(color: Colors.deepPurple, shape: BoxShape.circle),
+      child: const Center(
+        child: SizedBox(
+          width: 32, height: 32,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
         ),
       ),
     );
@@ -152,26 +145,32 @@ class _BubbleView extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-// Loading — shown while screenshot + OCR runs
+// Bubble — 72×72 floating button
 // ─────────────────────────────────────────────
-class _LoadingView extends StatelessWidget {
-  const _LoadingView();
+class _BubbleView extends StatelessWidget {
+  final VoidCallback onTap;
+  const _BubbleView({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 56, height: 56,
-      decoration: const BoxDecoration(
-        color: Colors.deepPurple,
-        shape: BoxShape.circle,
-      ),
-      child: const Center(
-        child: SizedBox(
-          width: 28, height: 28,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2.5,
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 72,
+        height: 72,
+        decoration: BoxDecoration(
+          color: Colors.deepPurple,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text('💬', style: TextStyle(fontSize: 28)),
         ),
       ),
     );
@@ -187,7 +186,8 @@ const _allTones  = ['professional', 'witty', 'supportive', 'curious', 'contraria
 class _PanelView extends StatefulWidget {
   final String initialText;
   final VoidCallback onClose;
-  const _PanelView({required this.initialText, required this.onClose});
+  final VoidCallback onPickImage;
+  const _PanelView({required this.initialText, required this.onClose, required this.onPickImage});
 
   @override
   State<_PanelView> createState() => _PanelViewState();
@@ -201,16 +201,16 @@ class _PanelViewState extends State<_PanelView> {
   bool _loading = false;
   String _error = '';
 
-  static const _baseUrl = String.fromEnvironment(
-    'NEXT_API_URL',
-    defaultValue: 'http://10.0.2.2:3000/api',
-  );
-
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialText);
   }
+
+  static const _baseUrl = String.fromEnvironment(
+    'NEXT_API_URL',
+    defaultValue: 'http://10.0.2.2:3000/api',
+  );
 
   @override
   void dispose() {
@@ -223,10 +223,7 @@ class _PanelViewState extends State<_PanelView> {
     setState(() { _loading = true; _suggestions = []; _error = ''; });
 
     try {
-      // Retrieve cached Firebase token stored by main app in shared prefs
-      // For overlay we pass it directly via shared preferences key
       final token = await _getStoredToken();
-
       final response = await http.post(
         Uri.parse('$_baseUrl/generate-comments'),
         headers: {
@@ -242,9 +239,7 @@ class _PanelViewState extends State<_PanelView> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final list = (data['suggestions'] as List)
-            .cast<Map<String, dynamic>>();
-        setState(() => _suggestions = list);
+        setState(() => _suggestions = (data['suggestions'] as List).cast<Map<String, dynamic>>());
       } else {
         final body = jsonDecode(response.body);
         setState(() => _error = body['error'] ?? 'Failed (${response.statusCode})');
@@ -256,11 +251,9 @@ class _PanelViewState extends State<_PanelView> {
     }
   }
 
-  /// Reads the Firebase ID token stored by the main app via SharedPreferences.
   Future<String?> _getStoredToken() async {
-    const channel = MethodChannel('com.eatechnologies.comment_ai/prefs');
     try {
-      return await channel.invokeMethod<String>('getToken');
+      return await FirebaseAuth.instance.currentUser?.getIdToken();
     } catch (_) {
       return null;
     }
@@ -304,20 +297,29 @@ class _PanelViewState extends State<_PanelView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Post text — pre-filled from OCR
                   TextField(
                     controller: _controller,
                     maxLines: 3,
                     style: const TextStyle(fontSize: 12),
                     decoration: const InputDecoration(
-                      hintText: 'Post text (edit if needed)...',
+                      hintText: 'Paste post text here...',
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.all(8),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  OutlinedButton.icon(
+                    onPressed: widget.onPickImage,
+                    icon: const Icon(Icons.image_outlined, size: 14),
+                    label: const Text('Upload Image to Extract Text',
+                        style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
                   const SizedBox(height: 8),
 
-                  // Platform chips
                   const Text('Platform', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   SingleChildScrollView(
@@ -336,7 +338,6 @@ class _PanelViewState extends State<_PanelView> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Tone chips
                   const Text('Tone', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Wrap(
@@ -347,16 +348,13 @@ class _PanelViewState extends State<_PanelView> {
                       return FilterChip(
                         label: Text(t, style: const TextStyle(fontSize: 10)),
                         selected: sel,
-                        onSelected: (v) {
-                          setState(() => v ? _tones.add(t) : _tones.remove(t));
-                        },
+                        onSelected: (v) => setState(() => v ? _tones.add(t) : _tones.remove(t)),
                         visualDensity: VisualDensity.compact,
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 8),
 
-                  // Generate button
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -366,27 +364,23 @@ class _PanelViewState extends State<_PanelView> {
                       child: _loading
                           ? const SizedBox(
                               height: 16, width: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Generate Comments',
-                              style: TextStyle(fontSize: 12)),
+                          : const Text('Generate Comments', style: TextStyle(fontSize: 12)),
                     ),
                   ),
 
                   if (_error.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    Text(_error,
-                        style: const TextStyle(color: Colors.red, fontSize: 11)),
+                    Text(_error, style: const TextStyle(color: Colors.red, fontSize: 11)),
                   ],
 
-                  // Suggestions
                   ..._suggestions.map((s) => _SuggestionTile(
-                        tone: s['tone'] as String,
-                        text: s['text'] as String,
-                        charCount: s['characterCount'] as int,
-                        onCopy: () => _copy(s['text'] as String),
-                      )),
+                    tone: s['tone'] as String,
+                    text: s['text'] as String,
+                    charCount: s['characterCount'] as int,
+                    onCopy: () => _copy(s['text'] as String),
+                  )),
                 ],
               ),
             ),
@@ -445,14 +439,12 @@ class _SuggestionTileState extends State<_SuggestionTile> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withValues(alpha:0.1),
+                  color: Colors.deepPurple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(widget.tone,
                     style: const TextStyle(
-                        fontSize: 9,
-                        color: Colors.deepPurple,
-                        fontWeight: FontWeight.bold)),
+                        fontSize: 9, color: Colors.deepPurple, fontWeight: FontWeight.bold)),
               ),
               const Spacer(),
               Text('${widget.charCount} chars',
@@ -472,10 +464,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
               ),
               label: Text(
                 _copied ? 'Copied!' : 'Copy',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: _copied ? Colors.green : Colors.deepPurple,
-                ),
+                style: TextStyle(fontSize: 11, color: _copied ? Colors.green : Colors.deepPurple),
               ),
               style: TextButton.styleFrom(
                 minimumSize: Size.zero,

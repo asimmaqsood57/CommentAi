@@ -13,16 +13,16 @@ export declare class DraftsController {
         createdAt: Date;
         title: string;
         content: string;
-        platform: import(".prisma/client").$Enums.Platform;
         userId: string;
+        platform: import(".prisma/client").$Enums.Platform;
     }>;
     list(user: User): Promise<{
         id: string;
         createdAt: Date;
         title: string;
         content: string;
-        platform: import(".prisma/client").$Enums.Platform;
         userId: string;
+        platform: import(".prisma/client").$Enums.Platform;
     }[]>;
     remove(user: User, id: string): Promise<{
         success: boolean;

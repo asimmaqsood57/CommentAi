@@ -33,7 +33,7 @@ let FirebaseAuthGuard = class FirebaseAuthGuard {
                 where: { firebaseUid: decoded.uid },
             });
             if (!user) {
-                throw new common_1.UnauthorizedException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+                throw new common_1.UnauthorizedException({ error: 'User not synced. Please log out and log in again.', code: 'USER_NOT_FOUND' });
             }
             request.user = user;
             return true;
@@ -41,6 +41,7 @@ let FirebaseAuthGuard = class FirebaseAuthGuard {
         catch (err) {
             if (err instanceof common_1.UnauthorizedException)
                 throw err;
+            console.error('[FirebaseAuthGuard] Token verification failed:', err);
             throw new common_1.UnauthorizedException({ error: 'Invalid token', code: 'AUTH_INVALID' });
         }
     }

@@ -16,24 +16,28 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
 import { DraftsService } from './drafts.service';
 import { FirebaseAuthGuard } from '../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { User } from '@prisma/client';
 
 class SaveDraftDto {
+  @IsString()
   @ApiProperty({
     example: 'LinkedIn — product launch comment',
     description: 'Short label used to identify the draft in your saved list.',
   })
   title: string;
 
+  @IsString()
   @ApiProperty({
     example: 'Congratulations on the launch — 18 months of sustained effort reflects exceptional team discipline.',
     description: 'The full comment text to save as a draft.',
   })
   content: string;
 
+  @IsString()
   @ApiProperty({
     example: 'linkedin',
     enum: ['linkedin', 'instagram', 'twitter', 'youtube', 'facebook', 'reddit'],

@@ -6,20 +6,23 @@
     <!-- Floating overlay bubble -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
-    <!-- Foreground services -->
+    <!-- Foreground service for overlay -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <!-- Required on Android 14+ for MediaProjection foreground service -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
-    <!-- Image picker / camera -->
+    <!-- Image picker -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
 
     <application
         android:label="CommentAI"
-        android:name="${applicationName}"
+        android:name=".MainApplication"
         android:icon="@mipmap/ic_launcher">
+
+        <property
+            android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+            android:value="Floating overlay bubble for CommentAI"/>
 
         <activity
             android:name=".MainActivity"
@@ -39,17 +42,33 @@
             </intent-filter>
         </activity>
 
+        <!-- Transparent activity for image picking from the overlay engine -->
+        <activity
+            android:name=".PickerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"/>
+
         <!-- flutter_overlay_window overlay service -->
         <service
-            android:name="com.tk.overlay_window.OverlayService"
+            android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice"/>
+            android:foregroundServiceType="specialUse"/>
 
-        <!-- CommentAI screenshot capture service (MediaProjection) -->
+        <!-- CommentAI Accessibility Service for screen capture -->
         <service
-            android:name=".ScreenshotService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection"/>
+            android:name=".CommentAiAccessibilityService"
+            android:exported="true"
+            android:label="CommentAI"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config"/>
+        </service>
 
         <meta-data
             android:name="flutterEmbedding"

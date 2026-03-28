@@ -16,7 +16,10 @@
       "Bash(tasklist /FI \"PID eq 17472\")",
       "Bash(powershell -Command \"Get-Process -Id 6996, 17472 | Select-Object Id, ProcessName\" 2>&1)",
       "Bash(find 'D:/Comment AI/CommentAi/frontend/android' -name *.kt -o -name *.java)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(flutter clean:*)",
+      "Bash(\"/c/Program Files/Android/Android Studio/jbr/bin/keytool.exe\" -list -v -keystore \"C:/Users/DELL/.android/debug.keystore\" -alias androiddebugkey -storepass android -keypass android)",
+      "Bash(flutter devices:*)"
     ]
   }
 }

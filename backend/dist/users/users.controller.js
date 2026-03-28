@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const users_service_1 = require("./users.service");
 const firebase_auth_guard_1 = require("../common/guards/firebase-auth.guard");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
@@ -24,6 +25,7 @@ class SyncUserDto {
     name;
 }
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'uid_abc123XYZ',
         description: 'Firebase UID obtained from the client SDK after sign-in',
@@ -31,6 +33,7 @@ __decorate([
     __metadata("design:type", String)
 ], SyncUserDto.prototype, "firebaseUid", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'john@example.com',
         description: 'User email address from Firebase Auth',
@@ -38,6 +41,7 @@ __decorate([
     __metadata("design:type", String)
 ], SyncUserDto.prototype, "email", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'John Doe',
         description: 'Display name from Firebase Auth (Google profile or manually set)',

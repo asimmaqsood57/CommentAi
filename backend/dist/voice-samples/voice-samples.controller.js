@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.VoiceSamplesController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const voice_samples_service_1 = require("./voice-samples.service");
 const firebase_auth_guard_1 = require("../common/guards/firebase-auth.guard");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
@@ -22,6 +23,7 @@ class AddVoiceSampleDto {
     content;
 }
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'Really insightful breakdown — the point about async communication resonates deeply with distributed teams.',
         description: `

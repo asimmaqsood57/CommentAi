@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GenerateController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const generate_service_1 = require("./generate.service");
 const firebase_auth_guard_1 = require("../common/guards/firebase-auth.guard");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
@@ -24,6 +25,7 @@ class GenerateCommentsDto {
     tones;
 }
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'Just launched our new SaaS product after 18 months of building. Grateful for the team that made it happen.',
         description: 'The full text of the social media post you want to comment on.',
@@ -31,6 +33,7 @@ __decorate([
     __metadata("design:type", String)
 ], GenerateCommentsDto.prototype, "postText", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'linkedin',
         enum: ['linkedin', 'instagram', 'twitter', 'youtube', 'facebook', 'reddit'],
@@ -39,6 +42,8 @@ __decorate([
     __metadata("design:type", String)
 ], GenerateCommentsDto.prototype, "platform", void 0);
 __decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
     (0, swagger_1.ApiProperty)({
         example: ['professional', 'witty'],
         enum: ['professional', 'witty', 'supportive', 'curious', 'contrarian'],

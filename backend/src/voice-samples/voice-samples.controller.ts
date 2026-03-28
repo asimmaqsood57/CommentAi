@@ -16,12 +16,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { IsString } from 'class-validator';
 import { VoiceSamplesService } from './voice-samples.service';
 import { FirebaseAuthGuard } from '../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { User } from '@prisma/client';
 
 class AddVoiceSampleDto {
+  @IsString()
   @ApiProperty({
     example: 'Really insightful breakdown — the point about async communication resonates deeply with distributed teams.',
     description: `

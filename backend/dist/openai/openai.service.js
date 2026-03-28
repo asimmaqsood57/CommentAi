@@ -37,7 +37,8 @@ let OpenAiService = class OpenAiService {
     constructor(config) {
         this.config = config;
         this.client = new openai_1.default({
-            apiKey: this.config.get('OPENAI_API_KEY'),
+            apiKey: this.config.get('GROQ_API_KEY'),
+            baseURL: 'https://api.groq.com/openai/v1',
         });
     }
     buildSystemPrompt(platform, tones, voiceSamples) {
@@ -50,7 +51,7 @@ let OpenAiService = class OpenAiService {
 Platform: ${platform}
 Platform rule: ${platformRule}
 
-Generate one comment suggestion per tone listed below. For each tone, apply the tone modifier on top of the platform rule.
+Generate 3 different comment suggestions per tone listed below. Each suggestion for the same tone should vary in wording, angle, or structure — but all must follow the tone modifier and platform rule.
 
 Tones requested:
 ${toneRules}`;
@@ -58,11 +59,12 @@ ${toneRules}`;
             prompt += `\n\nThe user has provided voice samples — mirror their style and vocabulary:\n${voiceSamples.map((s, i) => `Sample ${i + 1}: "${s}"`).join('\n')}`;
         }
         prompt += `\n\nRespond ONLY with a valid JSON object in this exact shape (no markdown, no explanation):
-{ "suggestions": [{ "tone": "<TONE>", "text": "<comment>", "characterCount": <number> }] }`;
+{ "suggestions": [{ "tone": "<TONE>", "text": "<comment>", "characterCount": <number> }] }
+There must be exactly 3 entries per tone in the suggestions array.`;
         return prompt;
     }
     async generateComments(postText, platform, tones, plan, voiceSamples) {
-        const model = plan === 'FREE' ? 'gpt-4o-mini' : 'gpt-4o';
+        const model = 'llama-3.3-70b-versatile';
         const systemPrompt = this.buildSystemPrompt(platform, tones, voiceSamples);
         const response = await this.client.chat.completions.create({
             model,

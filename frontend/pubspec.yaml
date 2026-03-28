@@ -29,15 +29,15 @@ dependencies:
   # Local storage
   shared_preferences: ^2.3.0
 
-  # In-app purchases
-  purchases_flutter: ^7.0.0
-
   # Image / OCR
   image_picker: ^1.1.0
   google_mlkit_text_recognition: ^0.13.0
 
+  # File system paths
+  path_provider: ^2.1.0
+
   # Overlay (floating bubble)
-  flutter_overlay_window: ^0.3.0
+  flutter_overlay_window: ^0.5.0
 
 dev_dependencies:
   flutter_test:

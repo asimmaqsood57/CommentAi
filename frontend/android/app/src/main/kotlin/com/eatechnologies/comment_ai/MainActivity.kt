@@ -1,20 +1,20 @@
 package com.eatechnologies.comment_ai
 
-import android.app.Activity
-import android.content.Context
 import android.content.Intent
-import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
 
     private val CHANNEL = "com.eatechnologies.comment_ai/screenshot"
-    private val MP_REQUEST_CODE = 1001
-
-    private var pendingResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -23,56 +23,62 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
 
-                    // Step 1 — request MediaProjection permission (shows system dialog)
-                    "requestScreenshotPermission" -> {
-                        pendingResult = result
-                        val manager =
-                            getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                        startActivityForResult(
-                            manager.createScreenCaptureIntent(),
-                            MP_REQUEST_CODE
-                        )
+                    "isAccessibilityEnabled" -> {
+                        result.success(CommentAiAccessibilityService.instance != null)
                     }
 
-                    // Step 2 — capture the screen (permission must already be granted)
+                    "openAccessibilitySettings" -> {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        result.success(null)
+                    }
+
                     "captureScreen" -> {
-                        val service = ScreenshotService.instance
+                        val service = CommentAiAccessibilityService.instance
                         if (service == null) {
-                            result.error("SERVICE_NOT_RUNNING", "Screenshot service is not active", null)
+                            result.error("NOT_ENABLED", "Accessibility service not enabled", null)
                             return@setMethodCallHandler
                         }
-                        ScreenshotService.captureCallback = { path ->
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                            result.error("API_TOO_LOW", "Requires Android 9+", null)
+                            return@setMethodCallHandler
+                        }
+                        service.captureScreen(cacheDir) { path ->
                             runOnUiThread { result.success(path) }
                         }
-                        service.captureScreen()
+                    }
+
+                    "bringToFront" -> {
+                        val intent = packageManager
+                            .getLaunchIntentForPackage(packageName)!!
+                            .apply {
+                                addFlags(
+                                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                )
+                            }
+                        startActivity(intent)
+                        result.success(null)
+                    }
+
+                    "runOcr" -> {
+                        val path = call.argument<String>("path")
+                        if (path == null) {
+                            result.success("")
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            val image = InputImage.fromFilePath(this, Uri.fromFile(File(path)))
+                            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                            recognizer.process(image)
+                                .addOnSuccessListener { visionText -> result.success(visionText.text) }
+                                .addOnFailureListener { result.success("") }
+                        } catch (e: Exception) {
+                            result.success("")
+                        }
                     }
 
                     else -> result.notImplemented()
                 }
             }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == MP_REQUEST_CODE) {
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                // Start the foreground service with the projection token
-                val intent = Intent(this, ScreenshotService::class.java).apply {
-                    action = ScreenshotService.ACTION_START
-                    putExtra(ScreenshotService.EXTRA_RESULT_CODE, resultCode)
-                    putExtra(ScreenshotService.EXTRA_DATA, data)
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(intent)
-                } else {
-                    startService(intent)
-                }
-                pendingResult?.success(true)
-            } else {
-                pendingResult?.success(false)
-            }
-            pendingResult = null
-        }
     }
 }

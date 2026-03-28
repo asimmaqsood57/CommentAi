@@ -35,11 +35,11 @@ class OverlayService {
 
   /// Expand the overlay to the full comment panel.
   static Future<void> expandToPanel() =>
-      FlutterOverlayWindow.resizeOverlay(_panelWidth, _panelHeight);
+      FlutterOverlayWindow.resizeOverlay(_panelWidth, _panelHeight, true);
 
   /// Collapse back to the small draggable bubble.
   static Future<void> collapseToButton() =>
-      FlutterOverlayWindow.resizeOverlay(_bubbleSize, _bubbleSize);
+      FlutterOverlayWindow.resizeOverlay(_bubbleSize, _bubbleSize, true);
 
   static Future<void> closeOverlay() => FlutterOverlayWindow.closeOverlay();
 

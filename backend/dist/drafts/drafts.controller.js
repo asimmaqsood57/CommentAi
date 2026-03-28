@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DraftsController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const drafts_service_1 = require("./drafts.service");
 const firebase_auth_guard_1 = require("../common/guards/firebase-auth.guard");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
@@ -24,6 +25,7 @@ class SaveDraftDto {
     platform;
 }
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'LinkedIn — product launch comment',
         description: 'Short label used to identify the draft in your saved list.',
@@ -31,6 +33,7 @@ __decorate([
     __metadata("design:type", String)
 ], SaveDraftDto.prototype, "title", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'Congratulations on the launch — 18 months of sustained effort reflects exceptional team discipline.',
         description: 'The full comment text to save as a draft.',
@@ -38,6 +41,7 @@ __decorate([
     __metadata("design:type", String)
 ], SaveDraftDto.prototype, "content", void 0);
 __decorate([
+    (0, class_validator_1.IsString)(),
     (0, swagger_1.ApiProperty)({
         example: 'linkedin',
         enum: ['linkedin', 'instagram', 'twitter', 'youtube', 'facebook', 'reddit'],

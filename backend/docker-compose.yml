@@ -1,16 +1,40 @@
+version: '3.8'
+
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: commentai_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: commentai
-      POSTGRES_PASSWORD: commentai
-      POSTGRES_DB: commentai
-    ports:
-      - "5433:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-commentai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-commentai}
+      POSTGRES_DB: ${POSTGRES_DB:-commentai}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-commentai}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── NestJS API ──────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: commentai_api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      # Overrides DATABASE_URL from .env so it points to the postgres container
+      DATABASE_URL: postgresql://${POSTGRES_USER:-commentai}:${POSTGRES_PASSWORD:-commentai}@postgres:5432/${POSTGRES_DB:-commentai}
+      PORT: 3000
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:

@@ -31,13 +31,14 @@ export class FirebaseAuthGuard implements CanActivate {
       });
 
       if (!user) {
-        throw new UnauthorizedException({ error: 'User not found', code: 'USER_NOT_FOUND' });
+        throw new UnauthorizedException({ error: 'User not synced. Please log out and log in again.', code: 'USER_NOT_FOUND' });
       }
 
       request.user = user;
       return true;
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;
+      console.error('[FirebaseAuthGuard] Token verification failed:', err);
       throw new UnauthorizedException({ error: 'Invalid token', code: 'AUTH_INVALID' });
     }
   }

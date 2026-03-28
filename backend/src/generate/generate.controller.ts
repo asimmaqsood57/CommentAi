@@ -7,18 +7,21 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { IsArray, IsString } from 'class-validator';
 import { GenerateService } from './generate.service';
 import { FirebaseAuthGuard } from '../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { User } from '@prisma/client';
 
 class GenerateCommentsDto {
+  @IsString()
   @ApiProperty({
     example: 'Just launched our new SaaS product after 18 months of building. Grateful for the team that made it happen.',
     description: 'The full text of the social media post you want to comment on.',
   })
   postText: string;
 
+  @IsString()
   @ApiProperty({
     example: 'linkedin',
     enum: ['linkedin', 'instagram', 'twitter', 'youtube', 'facebook', 'reddit'],
@@ -26,6 +29,8 @@ class GenerateCommentsDto {
   })
   platform: string;
 
+  @IsArray()
+  @IsString({ each: true })
   @ApiProperty({
     example: ['professional', 'witty'],
     enum: ['professional', 'witty', 'supportive', 'curious', 'contrarian'],

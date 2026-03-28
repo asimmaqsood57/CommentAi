@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CommentAI</string>
+    <string name="accessibility_service_description">CommentAI uses the Accessibility Service to capture the screen when you tap the floating bubble, so it can read social media posts and suggest comments.</string>
+</resources>

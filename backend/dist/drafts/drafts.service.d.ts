@@ -5,18 +5,18 @@ export declare class DraftsService {
     save(userId: string, title: string, content: string, platform: string): Promise<{
         id: string;
         createdAt: Date;
+        title: string;
         content: string;
         userId: string;
         platform: import(".prisma/client").$Enums.Platform;
-        title: string;
     }>;
     list(userId: string): Promise<{
         id: string;
         createdAt: Date;
+        title: string;
         content: string;
         userId: string;
         platform: import(".prisma/client").$Enums.Platform;
-        title: string;
     }[]>;
     remove(userId: string, id: string): Promise<{
         success: boolean;

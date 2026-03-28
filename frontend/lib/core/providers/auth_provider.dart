@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:comment_ai/core/api/api_client.dart';
 
 final authStateProvider = StreamProvider<User?>((ref) {
@@ -37,8 +36,6 @@ class AuthRepository {
 
   Future<void> _syncUser() async {
     final user = _auth.currentUser!;
-    // Link RevenueCat identity to Firebase UID so webhook events match the user
-    await Purchases.logIn(user.uid);
     await _api.post('/users/sync', {
       'firebaseUid': user.uid,
       'email': user.email ?? '',
@@ -47,7 +44,6 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    await Purchases.logOut();
     await _auth.signOut();
   }
 }

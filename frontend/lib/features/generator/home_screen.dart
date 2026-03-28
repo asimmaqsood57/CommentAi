@@ -59,6 +59,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
         }
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
       setState(() => _loading = false);
     }
@@ -136,8 +142,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: const Text('CommentAI'),
         actions: [
-          IconButton(icon: const Icon(Icons.bookmark_border), onPressed: () => context.go('/drafts')),
-          IconButton(icon: const Icon(Icons.settings), onPressed: () => context.go('/settings')),
+          IconButton(icon: const Icon(Icons.bookmark_border), onPressed: () => context.push('/drafts')),
+          IconButton(icon: const Icon(Icons.settings), onPressed: () => context.push('/settings')),
         ],
       ),
       body: SingleChildScrollView(
@@ -148,7 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             userAsync.when(
               data: (user) => user != null ? UsageProgressBar(user: user) : const SizedBox.shrink(),
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (e, s) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 16),
             TextField(

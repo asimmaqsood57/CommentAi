@@ -58,13 +58,27 @@ export class GenerateService {
     const tonesUpper = tones.map((t) => t.toUpperCase());
     const model = user.plan === 'FREE' ? 'gpt-4o-mini' : 'gpt-4o';
 
-    const suggestions = await this.openai.generateComments(
-      postText,
-      platformEnum,
-      tonesUpper,
-      user.plan,
-      voiceContents,
-    );
+    let suggestions: Awaited<ReturnType<typeof this.openai.generateComments>>;
+    try {
+      suggestions = await this.openai.generateComments(
+        postText,
+        platformEnum,
+        tonesUpper,
+        user.plan,
+        voiceContents,
+      );
+    } catch (err: any) {
+      if (err?.status === 429 || err?.code === 'insufficient_quota') {
+        throw new HttpException(
+          { error: 'AI service quota exceeded. Please try again later.', code: 'QUOTA_EXCEEDED' },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw new HttpException(
+        { error: 'AI service unavailable. Please try again.', code: 'AI_ERROR' },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
 
     // Save generation history
     await this.prisma.generationHistory.create({

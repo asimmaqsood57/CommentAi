@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:comment_ai/core/providers/router.dart';
 import 'package:comment_ai/core/services/screenshot_channel.dart';
 
@@ -13,15 +12,6 @@ export 'package:comment_ai/features/overlay/overlay_entry.dart' show overlayMain
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-
-  // RevenueCat
-  const revenueCatKey = String.fromEnvironment(
-    'REVENUECAT_PUBLIC_KEY',
-    defaultValue: '',
-  );
-  if (revenueCatKey.isNotEmpty) {
-    await Purchases.configure(PurchasesConfiguration(revenueCatKey));
-  }
 
   // Listen for messages from the overlay engine
   _listenForOverlayMessages();
@@ -37,35 +27,22 @@ void _listenForOverlayMessages() {
     final action = data['action'] as String?;
 
     if (action == 'capture_screenshot') {
-      // Capture the screen via native MediaProjection service
       final path = await ScreenshotChannel.captureScreen();
-
       if (path == null) {
-        await FlutterOverlayWindow.shareData({
-          'action': 'screenshot_error',
-          'message': 'Failed to capture screen.',
-        });
+        await FlutterOverlayWindow.shareData({'action': 'screenshot_error', 'message': 'Failed to capture screen.'});
         return;
       }
-
-      // Run ML Kit OCR on the captured screenshot
       final recognizer = TextRecognizer();
       try {
-        final inputImage = InputImage.fromFilePath(path);
-        final result = await recognizer.processImage(inputImage);
-        await FlutterOverlayWindow.shareData({
-          'action': 'ocr_result',
-          'text': result.text,
-        });
+        final result = await recognizer.processImage(InputImage.fromFilePath(path));
+        await FlutterOverlayWindow.shareData({'action': 'ocr_result', 'text': result.text});
       } catch (_) {
-        await FlutterOverlayWindow.shareData({
-          'action': 'screenshot_error',
-          'message': 'Could not read text from screenshot.',
-        });
+        await FlutterOverlayWindow.shareData({'action': 'screenshot_error', 'message': 'Could not read text.'});
       } finally {
         recognizer.close();
       }
     }
+
   });
 }
 
